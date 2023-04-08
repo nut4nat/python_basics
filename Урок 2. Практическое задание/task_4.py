@@ -17,4 +17,4 @@
 my_string = input('Введите слова через пробел>>>')
 my_list = my_string.split(' ')  # преобразование строки в список
 for ind, el in enumerate(my_list, 1):
-    print(ind, el)
+    print(ind, el[0:10])
