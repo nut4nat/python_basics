@@ -19,6 +19,10 @@ Process finished with exit code 0
 """
 
 def divide(num1, num2):
+    """
+    Делит num1 на num2 и возвращает число
+    При обнаружении 0 в делителе возращает текст Ошибки
+    """
     try:
         result = num1/num2
     except ZeroDivisionError:
