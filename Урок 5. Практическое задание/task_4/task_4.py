@@ -8,9 +8,11 @@
 Петров 13749.32
 """
 
+
+salary = []
+worker_lst = []
+
 with open('my_text.txt', encoding='utf-8') as f:
-    salary = []
-    worker_lst = []
     for line in f:
         lst = line.split()
         salary.append(lst[1])
