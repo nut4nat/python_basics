@@ -6,3 +6,10 @@
 Пример словаря: {“Информатика”: 170, “Физика”: 40, “Физкультура”: 30}
 """
 
+my_dict = {}
+with open('my_file.txt', encoding='utf-8') as f:
+    for line in f:
+        line = line.replace('—', '0')
+        lst = line.split()
+        my_dict[lst[0].replace(':','')] = int(lst[1].replace('(л)','')) + int(lst[2].replace('(пр)','')) + int(lst[3].replace('(лаб)',''))
+    print(f'Предмет и общее количество часов по нему: \n {my_dict}')
