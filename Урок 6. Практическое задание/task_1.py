@@ -28,7 +28,7 @@ class TrafficLight:
             print(self.__color[i])
             time.sleep(period[i])
             i = i + 1
-            if i > len(period):
+            if i > len(period)-1:
                 break
 
 obj = TrafficLight()
