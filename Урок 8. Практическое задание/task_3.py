@@ -21,6 +21,8 @@ lst = []
 while True:
     try:
         a = input('Input number for the List: ')
+        if a == '!':
+            break
         if not a.isdigit():
             raise NotNumError('it is not number! Try again to input number!')
     except NotNumError as err:
@@ -28,3 +30,5 @@ while True:
     else:
         lst.append(int(a))
         print(f'Current List: {lst}')
+    finally:
+        print(f'Input ! to finish')
