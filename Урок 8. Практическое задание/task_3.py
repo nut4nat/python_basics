@@ -29,6 +29,5 @@ while True:
         print(err)
     else:
         lst.append(int(a))
-        print(f'Current List: {lst}')
     finally:
-        print(f'Input ! to finish')
+        print(f'Input ! to finish. Current List: {lst}')
