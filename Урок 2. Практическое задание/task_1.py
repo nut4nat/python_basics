@@ -19,3 +19,7 @@
 my_list = [None, False, 100, 1.1, -2, 'abra']
 for i in range(len(my_list)):
     print(type(my_list[i]))
+
+my_list = [None, False, 100, 1.1, -2, 'abra']
+for el in my_list):
+    print(type(el))
