@@ -9,6 +9,4 @@
 n + nn + nnn = 369
 """
 n = int(input("Input figure>>>"))
-
-result = n + int(f"{n}{n}") + int(f"{n}{n}{n}")
-print(result)
+print(f'Результат: {n + int(f"{n}{n}") + int(f"{n}{n}{n}")}')

@@ -16,6 +16,4 @@ surname = input("Input your surname>>>")
 age = int(input("Input your age>>>"))
 
 print("Найден пользователь со следующими данными:")
-print(f"Имя: {name}")
-print(f"Фамилия: {surname}")
-print(f"Возраст: {age}")
+print(f"Имя: {name}, Фамилия: {surname}, Возраст: {age}")
