@@ -1,0 +1,1342 @@
+openapi: 3.0.0
+info:
+  title: API интеграции Системы быстрых платежей (СБП)
+  x-logo:
+    url: inplatsuperlogo.png
+    altText: Inplatlabs
+  version: '1.0'
+  description: >-
+
+    ## Общее описание
+
+    Bзаимодействие осуществляется по протоколу HTTP с использованием методов GET/POST/DELETE.
+
+
+    POST-запрос использует JSON-аргументы, GET и DELETE-запросы работают со строками запросов.
+
+
+    API всегда возвращает ответ в формате JSON, независимо от типа запроса.
+
+
+    Ответ любого метода содержит код сообщения (code). Если в процессе обработки любого запроса произойдет логическая ошибка, API вернет дополнительно описание ошибки.
+
+
+
+    В СБП используется формат двухмерного QR-кода (ISO/IEC 18004-2015).
+
+
+    __Внимание! Изменяется формат функциональной ссылки!__
+
+
+    В настоящее время Payload QR-кода Операции СБП C2B представляет собой URL следующего формата:
+
+
+    `https://HOST/QR_ID?type=QR_TYPE&bank=MEMBER_ID&sum=SUM&cur=CUR&crc=CRC`
+
+
+    С 01 октября 2022 новые функциональные ссылки Операции СБП C2B будут создаваться в следующем формате
+
+
+    `https://HOST/QR_ID`
+
+
+    ## Cхема работы по прямому протоколу СБП
+
+
+    <a href='IPT_api_sbp_scheme.png' target='_blank'><img src='IPT_api_sbp_scheme.png'></a>
+
+    ## Авторизация
+
+    Запросы, связанные с получением данных по платежу и управлением платежами, авторизуются посредством секретного ключа API (secretKey). Параметр авторизации указывается в заголовке Authorization, значение которого формируется как "Bearer secretKey".
+
+
+    Для получения секретного ключа необходимо обратиться в компанию "ИнплатТехноголоии". Секретный ключ необходимо хранить в доверенной среде, так как по нему возможно проведение возвратов.
+
+
+servers:
+  - url: https://sbp-box.ipt-merch.com
+tags:
+  - name: Работа с QR-кодом
+  - name: Подписки
+  - name: Уведомления
+  - name: Реестр
+    description: >
+      Передача файла осуществляется по протоколу SFTP.
+
+
+      Отправка - ежедневно. В случае отсуствия операций за день, реестр на следующий день не отправляется.
+
+
+      Формат реестра:
+
+
+      Наименование колонки | Значение | Пример
+
+      --------|------------------|--------
+
+      Мерчант | Идентификатор зарегистрированного партнёра в СБП (Merchant.sbpMerchantId) | MA694999
+
+      Дата операции МСК | Дата и время проведения операции (Transaction.transactionDateExternal - тип операции Payment, Refund.createDate - тип операции  Refund) | 30.06.2022  14:55:23
+
+      id операции | Уникальный идентификатор операции в системе партнёра (Order.operationId - тип операции Payment, Refund.operationId - тип операции Refund) | 12345dhfg
+
+      Тип | Тип операции (Payment, Refund) | Refund
+
+      id заказа | Уникальный идентификатор заказа в системе партнёра (Order.orderidExternal) | 1-22-333-4444-55555
+
+      id возврата | Уникальный идентификатор запроса на возврат в системе партнера (Refund.refundIdExternal) | test_refundId_007
+
+      Комментарий | Комментарий к заказу (QRCode.additionalinfo) | test additionalInfo
+
+      Способ оплаты | значение "Instant Payment QR | Instant Payment QR
+
+      QR | Уникальный идентификатор QR (QRCode.sbpQrid) | ADD13A6C743747C0B730B2B075A2EDE7
+
+      id клиента | Маскированный код плательщика (Merchant.id) | ****4567
+
+      Сумма | Сумма транзакции (Order.amount - тип операции Payment, Refund.amount - тип операции Refund) | -500
+
+      Комиссия | Комиссия по транзакции |
+  - name: Cправочник ошибок
+    description: >
+      Стандартный HTTP-код результата обработки и объект ошибки.
+
+      HTTP-код | Описание
+
+      ------------|------
+
+      200  | Успешный ответ.
+
+      400  | Некорректный запрос (нарушение формата или допустимых значений параметров запроса).
+
+      401  | Ошибка авторизации (отсутствие аутентификации или успешной авторизации на стороне Агента ТСП).
+
+      404  | Ресурс не найден.
+
+      422  | Некорректное значение параметра запроса.
+
+      500  | Внутренняя ошибка. Повторите запрос позднее.
+
+
+
+      Коды результа обработки.
+
+      code | message
+
+      ------------|------
+
+      ERROR.ACCOUNT_IS_NOT_REGISTERED | Указан неверный счет. Проверьте его или удалите. Параметр является необязательным
+
+      ERROR.INVALID_REQUEST | Не передан обязательный параметр
+
+      ERROR.QR_EXPIRATION_DATE_NOT_VALID | Неверная дата истечения QR-кода
+
+      ERROR.MERCHANT_NOT_REGISTERED | Партнер с ID * не зарегистрирован
+
+      ERROR.ORDER_NUMBER_ALREADY_REGISTERED | QR-код с номером заказа *, партнера * и успешными платежами уже зарегистрирован
+
+      ERROR.INVALID_REQUEST | Передана некорректная сумма платежа
+
+      ERROR.SBP_MERCHANT_ID_IS_MISSING | SbpMerchantId партнера не указан
+
+      ERROR.DYNAMIC_QR_WITHOUT_AMOUNT | Не передана сумма для динамического QR-кода
+
+      ERROR.INVALID_ORDER | В номере заказа поддерживаются A-z09_-.
+
+      ERROR.NOT_FOUND | QR-код не найден у данного партнера
+
+      ERROR.REFUND_INSUFFICIENT_FUNDS | Сумма возврата больше суммы остатка по платежу
+
+      ERROR.INVALID_REQUEST | Сумма возврата не может быть меньше 1 копейки
+
+      ERROR.REFUND_NOT_FOUND | Возврат с refundId * не найден
+
+      ERROR.ERROR_WRONG_QR_STATUS | Нельзя сменить статус QR-кода с * на *
+
+  - name: 9.12.2022
+    description: >
+
+      - Добавлен необязательный параметр __merchantAdditionalInfo__ в запрос метода "Регистрация QR", "Уведомление о платеже", ответ метода "Получение информации по платежу".
+
+  - name: 13.10.2022
+    description: >
+
+      - Проставлена максимально допустимая длина значения параметра __amount<=12__ в запросах методов. "Регистрация QR" и "Оформление возврата по платежу".
+
+
+  - name: 10.10.2022
+    description: >
+
+      - Параметр __qrExpirationDate__ сделан не обязательным в ответе метода "Получение данных по зарегистрированному ранее QR-коду".
+
+  - name: 14.09.2022
+    description: >
+
+
+      - Удален параметр __merchantId__ из ответа метода  "Получение информации по платежу".
+
+      - Сделан обязательным параметр __transactionId__ в запросе метода "Оформление возврата по платежу".
+
+  - name: 5.08.2022
+    description: >
+
+
+      - Добавлен раздел __"Подписки"__.
+
+      - В раздел __"Уведомления"__ добавлены методы: "Уведомление о результате выполнения привязки счета" и "Уведомление о решении об оплате с привязанного счета".
+
+      - В парметр __qrType__ (метод "Регистрация QR") добавлено возможное значение _QRSubscription_.
+  - name: 4.08.2022
+    description: >
+
+
+      - В раздел __"Общее описание"__ добавлено информирование об изменении формата QR-кода.
+
+      - В раздел __"Справочник ошибок"__ добавлено описание стандартного HTTP-кода.
+  - name: 28.07.2022
+    description: >
+
+
+      - Удаление параметра __qrUrl__ из всех методов.
+  - name: 4.07.2022
+    description: >
+
+
+      - Добавлен раздел __"Реестр"__.
+
+x-tagGroups:
+  - name: API
+    tags:
+      - Работа с QR-кодом
+      - Подписки
+      - Уведомления
+  - name: Сверка
+    tags:
+      - Реестр
+  - name: Ошибки
+    tags:
+      - Cправочник ошибок
+  - name: История изменений
+    tags:
+      - 9.12.2022
+      - 13.10.2022
+      - 10.10.2022
+      - 14.09.2022
+      - 5.08.2022
+      - 4.08.2022
+      - 28.07.2022
+      - 4.07.2022
+
+paths:
+  /sbp/v2/qrs:
+    post:
+      summary: Регистрация QR
+      operationId: post-sbp-v2-qrs
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/qrResponse'
+              examples:
+                QRDynamic/QRStatic:
+                  value:
+                    qrId: AD100004BAL7227F9BNP6KNE007J9B3K
+                    payload: >-
+                      https://qr.nspk.ru/AD100004BAL7227F9BNP6KNE007J9B3K?type=02&bank=100000000007&sum=1&cur=RUB&crc=AB75
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                ERROR1:
+                  value:
+                    code: "ERROR.ACCOUNT_IS_NOT_REGISTERED"
+                    message: >-
+                      Указан неверный счет. Проверьте его или удалите. Параметр является необязательным
+                ERROR2:
+                  value:
+                    code: "ERROR.INVALID_REQUEST"
+                    message: >-
+                      Максимальное время жизни динамического QR - 90 дней
+                ERROR3:
+                  value:
+                    code: "ERROR.MERCHANT_NOT_REGISTERED"
+                    message: >-
+                      Партнер с ID MA69499999 не зарегистрирован
+                ERROR4:
+                  value:
+                    code: "ERROR.INVALID_REQUEST"
+                    message: >-
+                      Идентификатор зарегистрированного ТСП в НСПК не может быть длиннее 12 символов
+                ERROR5:
+                  value:
+                    code: "ERROR.INVALID_REQUEST"
+                    message: >-
+                      Unexpected character ('}' (code 125)): was expecting double-quote to start field name\n at [Source: (org.springframework.util.StreamUtils$NonClosingInputStream); line: 10, column: 2]
+                ERROR6:
+                  value:
+                    code: "ERROR.MERCHANT_NOT_REGISTERED"
+                    message: >-
+                      Партнер с ID null не зарегистрирован
+                ERROR7:
+                  value:
+                    code: "ERROR.INVALID_REQUEST"
+                    message: >-
+                      Не допустимый идентификатор заказа
+      description: >-
+        Регистрация QR-кода выполяется без авторизации, что позволяет
+        сгенерировать его на сайте или в приложении.
+
+        Данный метод позволяет генерировать как статические QR-коды, так и
+        динамические QR-коды для каждой кассы.
+
+        Также с помощью данного метода вы можете сгенерировать QR-код для оплаты
+        с подпиской.
+
+
+        При каждом новом запросе будет возвращаться новый QR.
+
+      requestBody:
+        description: >-
+
+          - Схема QRDynamic используется при qrType="QRDynamic" и qrType="QRSubscription".
+
+          - Схема QRStatic используется при qrType="QRStatic" и qrType="QRSubscription".
+
+          - Параметр jsonParams на данный момент не используется (заложен на будущее).
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/QRDynamic'
+                - $ref: '#/components/schemas/QRStatic'
+            examples:
+              QRDynamic:
+                value:
+                  account: 40700000000000000000
+                  additionalInfo: Доп. информация
+                  amount: 1110.11
+                  currency: RUB
+                  order: 1-22-333
+                  paymentDetails: Назначение платежа
+                  qrType: QRDynamic
+                  qrExpirationDate: '2023-07-22 09:14:38+03:00'
+                  sbpMerchantId: MA0000000552
+                  redirectUrl: https://bfkh.ru
+                  operationId: '120059ASJSAJS'
+              QRStatic:
+                value:
+                  order: 1-22-333
+                  qrType: QRStatic
+                  sbpMerchantId: MA0000000552
+                  redirectUrl: https://bfkh.ru/
+                  operationId: '120059ASJSAJS'
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: Content-Type
+          description: application/json
+          required: true
+      x-codeSamples:
+         - lang: cURL
+           source: >-
+              curl --location --request POST 'https://sbp-box.ipt-merch.com/api/sbp/v2/qrs' \
+
+              --header 'Content-Type: application/json' \
+
+              --data-raw '{
+
+              "order": "1-22-333",
+
+              "qrType": "QRStatic",
+
+              "sbpMerchantId": "MA0000000552",
+
+              "redirectUrl": "https://bfkh.ru/",
+
+              "operationId": "120059ASJSAJS"
+
+              }'
+      tags:
+        - Работа с QR-кодом
+
+  /sbp/v2/qrs/{qrId}:
+    parameters:
+      - schema:
+          type: string
+        name: qrId
+        in: path
+        required: true
+        description: Уникальный идентификатор QR
+      - schema:
+          type: string
+        in: header
+        name: Authorization
+        description: Bearer secretKey
+        required: true
+    get:
+      summary: Получение данных по зарегистрированному ранее QR-коду
+      operationId: get-sbp-v2-qrs-qrId
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/qrInfov2'
+              examples:
+                '200':
+                  value:
+                    qrId: AD100004BAL7227F9BNP6KNE007J9B3K
+                    qrStatus: NEW
+                    qrExpirationDate: '2023-07-22 09:14:38+03:00'
+                    payload: >-
+                      https://qr.nspk.ru/AD100004BAL7227F9BNP6KNE007J9B3K?type=02&bank=100000000007&sum=1&cur=RUB&crc=AB75
+        '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ERROR1:
+                    value:
+                      code: "ERROR.NOT_FOUNDS"
+                      message: >-
+                        QR-код не найден у данного партнера
+      description: Метод позволяет получить данные по зарегистрированному ранее QR-коду
+      tags:
+        - Работа с QR-кодом
+      x-codeSamples:
+        - lang: cURL
+          source: >
+            curl --location --request GET
+            'https://sbp-box.ipt-merch.com/api/sbp/v2/qrs/ADAC306DDBF443CA94EBE3FA85CA4872'
+            \
+
+            --header 'Authorization: Bearer eyJ0eXA***'
+  /sbp/v1/qr/{qrId}/payment-info:
+    parameters:
+      - schema:
+          type: string
+        name: qrId
+        in: path
+        required: true
+        description: Уникальный идентификатор QR
+    get:
+      summary: Получение информации по платежу
+      tags:
+        - Работа с QR-кодом
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/paymentInfo'
+              examples:
+                '200':
+                  value:
+                    additionalInfo: Доп. информация
+                    paymentPurpose: Назначение платежа
+                    amount: 1110.11
+                    code: SUCCESS
+                    createDate: '2020-01-31 09:14:38.107227+03:00'
+                    currency: RUB
+                    order: 282a60f8-dd75-4286-bde0-af321dd081b3
+                    paymentStatus: SUCCESS
+                    qrId: AD100051KNSNR64I98CRUJUASC9M72QT
+                    sbpMerchantId: MA0000000552
+                    transactionDate: '2019-07-11 17:45:13.109227+03:00'
+                    transactionId: 23
+                    qrExpirationDate: '2020-01-15 13:00:40+03:00'
+        '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ERROR1:
+                    value:
+                      code: "ERROR.NOT_FOUNDS"
+                      message: >-
+                        QR-код не найден у данного партнера
+      operationId: get-sbp-v1-qr-qrId-payment-info
+      description: |-
+        Метод позволяет получить данные по платежу по QR.
+      parameters:
+        - schema:
+            type: string
+          in: header
+          description: Bearer secretKey
+          name: Authorization
+          required: true
+      x-codeSamples:
+        - lang: cURL
+          source: >
+            curl --location --request GET
+            'https://sbp-box.ipt-merch.com/api/sbp/v1/qr/AS6E5A7F9E3A4E648C536EC930AECDF6/payment-info'
+            \
+
+            --header 'Authorization: Bearer eyJ0eXA***'
+
+  /sbp/v1/callback-pay:
+    post:
+      summary: Уведомление о платеже
+      operationId: post-sbp-v1-callback-pay
+      responses:
+        '200':
+          description: OK
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/paymentNotification'
+      tags:
+        - Уведомления
+      description: |-
+        Уведомление о совершенном платеже.
+
+  /sbp/v1/refund:
+    post:
+      summary: Оформление возврата по платежу
+      operationId: post-sbp-v1-refund
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responseRefund'
+              examples:
+                '200':
+                  value:
+                    code: SUCCESS
+                    amount: 150
+                    refundStatus: IN_PROGRESS
+        '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ERROR1:
+                    value:
+                      code: "ERROR.INVALID_REQUEST"
+                      message: >-
+                        Сумма возврата не может быть меньше 1 копейки
+      requestBody:
+        description: >-
+          - Параметр transactionId обязателен только для QRStatic
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/refundQR'
+            examples:
+              QRDynamic:
+                value:
+                  amount: 150
+                  order: test_order_007
+                  paymentDetails: Test
+                  refundId: test_refundId_007
+                  transactionId: 41
+                  operationId: '1324SDKDLSM'
+              QRStatic:
+                value:
+                  amount: 150
+                  order: test_order_007
+                  paymentDetails: Test
+                  refundId: test_refundId_007
+                  transactionId: 41
+                  operationId: '1324SDKDLSM'
+      tags:
+        - Работа с QR-кодом
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: Content-Type
+          description: application/json
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: Authorization
+          description: Bearer secretKey
+          required: true
+      x-codeSamples:
+        - lang: cURL
+          source: >
+            curl --location --request POST
+            'https://sbp-box.ipt-merch.com/api/sbp/v1/refund' \
+
+            --header 'Content-Type: application/json' \
+
+            --header 'Authorization: Bearer eyJ0eXA***' \
+
+            --data-raw '{
+
+            "amount": 150,
+
+            "order": "test_order_007",
+
+            "paymentDetails": "Test",
+
+            "refundId": "test_refundId_007",
+
+            "transactionId": 41,
+
+            "operationId": "1324SDKDLSM"
+
+            }'
+      description: |-
+        Метод позволяет осуществлять полный и частичный возврат по QR.
+
+  /sbp/v1/refund/{refundId}:
+    parameters:
+      - schema:
+          type: string
+        name: refundId
+        in: path
+        required: true
+        description: Уникальный идентификатор запроса на возврат в системе партнера
+    get:
+      summary: Получение информации по возврату
+      tags:
+        - Работа с QR-кодом
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/responseRefund'
+              examples:
+                '200':
+                  value:
+                    code: SUCCESS
+                    amount: 150
+                    refundStatus: COMPLETED
+        '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ERROR1:
+                    value:
+                      code: "ERROR.REFUND_NOT_FOUND"
+                      message: >-
+                        Возврат с refundId test_refundId_009 не найден
+      operationId: get-sbp-v1-refund-refundId
+      parameters:
+        - schema:
+            type: string
+          in: header
+          name: Authorization
+          description: Bearer secretKey
+          required: true
+      x-codeSamples:
+        - lang: cURL
+          source: >
+            curl --location --request GET
+            'https://sbp-box.ipt-merch.com/api/sbp/v1/refund/111112222200046'
+            \
+
+            --header 'Authorization: Bearer eyJ0eXA***'
+      description: |-
+        Получение информации по возврату
+
+  /sbp/v1/qrc/subscr/notification:
+    post:
+      summary: Уведомление о результате выполнения привязки счета
+      operationId: post-sbp-v1-qrc-subscr-notification
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Ошибка.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/subscrNotification'
+            examples:
+              example:
+                value:
+                  qrcId: AD1000038AQ1FG409KGACUQU5QRSH3FM
+                  subscrStatus: SUCCESS
+                  subscriptionToken: 70LSS7DN18SJQRS10006DNPKLJL24B05
+                  memberId: '100000000003'
+      tags:
+        - Уведомления
+      description: |-
+        `Метод находится на стадии реализации!`
+
+        Данные Уведомления для Агента ТСП о результате выполнения привязки счета Плательщика от ОПКЦ СБП.
+
+  /sbp/v1/payment/petition/{qrId}:
+    post:
+      summary: Запрос на оплату с привязанного счета
+      operationId: post-sbp-v1-payment-petition-qrId
+      responses:
+        '200':
+          description: OK
+        '400':
+            description: Bad Request
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Error'
+                examples:
+                  ERROR1:
+                    value:
+                      code: "ERROR.NOT_FOUND"
+                      message: >-
+                        QR-код не найден у данного партнера
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/subscrPetition'
+            examples:
+              example:
+                value:
+                  subscriptionToken: 70LSS7DN18SJQRS10006DNPKLJL24B05
+                  memberId: '100000000003'
+      tags:
+        - Подписки
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: qrId
+          description: Уникальный идентификатор QR-кода, выданный СБП при запросе генерации QR-кода
+          required: true
+        - schema:
+            type: string
+          in: header
+          name: Content-Type
+          description: application/json
+          required: true
+      x-codeSamples:
+        - lang: cURL
+          source:
+      description: |-
+        `Метод находится на стадии реализации!`
+
+        Запрос в ОПКЦ СБП на оплату с привязанного счета Плательщика от Агента ТСП.
+
+  /sbp/v1/qrc/resolution/notification:
+    post:
+      summary: Уведомление о решении об оплате с привязанного счета
+      operationId: post-sbp-v1-qrc-resolution-notification
+      responses:
+        '200':
+          description: OK
+        '500':
+          description: Ошибка.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/subscrResolutionNotification'
+            examples:
+              example:
+                value:
+                  code: RQ00030
+                  message: Согласие на выполнение платежа
+                  qrcId: AD1000038AQ1FG409KGACUQU5QRSH3FM
+      tags:
+        - Уведомления
+      description: |-
+        `Метод находится на стадии реализации!`
+
+        Уведомление для Агента ТСП о решении об оплате с привязанного счета Плательщика от ОПКЦ СБП.
+
+
+components:
+  schemas:
+    paymentInfo:
+      description: ''
+      type: object
+      title: paymentResponse
+      properties:
+        additionalInfo:
+          type: string
+          minLength: 1
+          description: >-
+            Дополнительная информация, заполняемая по желанию партнёра при
+            генерации QR-кода. Может быть доступна для пользователя в
+            зависимости от банка
+        paymentPurpose:
+          type: string
+          minLength: 1
+          description: Назначение платежа
+        amount:
+          type: number
+          description: Сумма платежа
+        code:
+          type: string
+          minLength: 1
+          description: Код сообщения
+        createDate:
+          type: string
+          minLength: 1
+          description: Время формирования заявки
+        currency:
+          type: string
+          minLength: 1
+          enum:
+            - RUB
+          description: Валюта платежа
+        order:
+          type: string
+          minLength: 1
+          description: Уникальный идентификатор заказа в системе партнёра.
+        paymentStatus:
+          type: string
+          minLength: 1
+          enum:
+            - SUCCESS
+            - DECLINED
+            - NO_INFO
+            - IN_PROGRESS
+          description: Статус платежа
+        qrId:
+          type: string
+          minLength: 1
+          description: Уникальный идентификатор QR, выданный СБП при запросе генерации QR
+        sbpMerchantId:
+          type: string
+          minLength: 1
+          description: Уникальный идентификатор партнёра, выданный СБП
+        transactionDate:
+          type: string
+          minLength: 1
+          description: Дата и время проведения платежа
+        transactionId:
+          type: integer
+          description: Идентификатор операции платежа
+        qrExpirationDate:
+          type: string
+          minLength: 1
+          description: Время истечения срока жизни QR
+          format: YYYY-MM-DD ТHH24:MM:SS±HH:MM
+        merchantAdditionalInfo:
+          type: object
+          format: json
+          description: >-
+            Данные мерчанта, передаваемые в формате json. Объект сохраняется для возврата мерчанту в уведомлении о платеже и ответе на запрос об информации по платежу.
+      required:
+        - amount
+        - code
+        - createDate
+        - currency
+        - order
+        - paymentStatus
+        - qrId
+        - sbpMerchantId
+        - qrExpirationDate
+    QRStatic:
+      description: >-
+        Статический QR-код может быть оплачен несколько раз. Если будет
+        зарегистрирован статический QR-код без суммы - клиент самостоятельно
+        укажет сумму в мобильном приложении. Подходит для размещения на кассе и
+        благотворительных фондов
+      allOf:
+        - type: object
+          properties:
+            account:
+              type: number
+              description: >-
+                Счет для зачисления. Параметр используется, если необходимо
+                разносить платежи на разные счета
+              maximum: 20
+            additionalInfo:
+              type: string
+              description: >-
+                Дополнительная информация. Может быть доступна для пользователя
+                в зависимости от банка, назначение платежа плательщика.
+              maxLength: 140
+            amount:
+              type: number
+              description: Сумма в рублях
+              maxLength: 12
+            currency:
+              type: string
+              description: Валюта платежа. Обязательно для заполнения, если заполнена сумма
+              maxLength: 3
+              minLength: 3
+              enum:
+                - RUB
+            order:
+              type: string
+              minLength: 1
+              description: >-
+                Уникальный идентификатор заказа в системе партнёра. Рекомендуем
+                использовать длинный формат без возможности перебора. Например,
+                использовать формат [UUID
+                v4](https://ru.wikipedia.org/wiki/UUID)
+              maxLength: 40
+              pattern: ^[A-z0-9-_.]
+            paymentDetails:
+              type: string
+              description: Назначение платежа в выписке получателя.
+              maxLength: 185
+            qrType:
+              description: >-
+                Тип QR-кода<br/> Статический QR-код может быть оплачен несколько
+                раз. Если будет зарегистрирован статический QR-код без суммы -
+                клиент самостоятельно укажет сумму в мобильном приложении.
+                Подходит для размещения на кассе и в благотворительных фондах
+              type: string
+              enum:
+                - QRDynamic
+                - QRStatic
+                - QRSubscription
+            qrExpirationDate:
+              type: string
+              description: >-
+                Срок действия QR-кода<br>Может содержать точную дату и время или
+                количество минут. Передача срока в минутах удобна для торговых
+                точек, которые не привязываются к точному времени или часовому
+                поясу<br>Параметр не может быть меньше текущей даты и времени.
+                Если указывается в минутах, то не может быть меньше 1
+                минуты<br>После истечения срока действия QR-кода оплату по нему
+                провести нельзя
+              format: YYYY-MM-DD ТHH24:MM:SS±HH:MM / +nM / +nm
+            sbpMerchantId:
+              type: string
+              description: Идентификатор зарегистрированного партнёра в СБП
+              maxLength: 12
+            redirectUrl:
+              type: string
+              format: uri
+              description: >-
+                Cсылка для автоматического возврата плательщика из приложения
+                банка в приложение или на сайт магазина. Ссылка должна содержать
+                https:// для web страниц или уникальную схему для мобильного
+                приложения.
+            operationId:
+              type: string
+              description: >
+                Уникальный идентификатор операции в системе партнёра. Рекомендуем использовать длинный формат без возможности перебора, например, использовать формат UUID v4
+            jsonParams:
+              description: Используется для платежей по свободным реквизитам
+              type: object
+            merchantAdditionalInfo:
+              type: object
+              format: json
+              description: >-
+                Данные мерчанта, передаваемые в формате json. Объект сохраняется для возврата мерчанту в уведомлении о платеже и ответе на запрос об информации по платежу.
+          required:
+            - order
+            - qrType
+            - sbpMerchantId
+            - operationId
+    QRDynamic:
+      description: >-
+        Динамический QR-код создается под каждую продажу. Такой QR-код можно
+        оплатить только один раз, сумма содержится в самом QR-коде
+      allOf:
+        - type: object
+          properties:
+            account:
+              type: number
+              description: >-
+                Счет для зачисления. Параметр используется, если необходимо
+                разносить платежи на разные счета
+              maximum: 20
+            additionalInfo:
+              type: string
+              description: >-
+                Дополнительная информация. Может быть доступна для пользователя
+                в зависимости от банка, назначение платежа плательщика.
+              maxLength: 140
+            amount:
+              type: number
+              description: Сумма в рублях
+              maxLength: 12
+            currency:
+              type: string
+              description: >-
+                Валюта платежа. Если не заполнено, то автоматически указывается
+                значение RUB
+              enum:
+                - RUB
+              maxLength: 3
+              minLength: 3
+            order:
+              type: string
+              description: >-
+                Уникальный идентификатор заказа в системе партнёра. Рекомендуем
+                использовать длинный формат без возможности перебора, например,
+                использовать формат [UUID
+                v4](https://ru.wikipedia.org/wiki/UUID)
+              pattern: ^[A-z0-9-_.]
+              maxLength: 40
+              minLength: 1
+            paymentDetails:
+              type: string
+              description: Назначение платежа в выписке получателя.
+              maxLength: 185
+            qrType:
+              type: string
+              description: >-
+                Тип QR-кода<br/> Динамический QR-код создается под каждую
+                продажу. Такой QR можно оплатить только один раз, сумма
+                зашивается сразу в QR
+              enum:
+                - QRDynamic
+                - QRStatic
+                - QRSubscription
+            qrExpirationDate:
+              type: string
+              minLength: 1
+              description: >-
+                Срок действия QR-кода<br>Может содержать точную дату и время или
+                количество минут. Передача срока в минутах удобна для торговых
+                точек, которые не привязываются к точному времени или часовому
+                поясу<br>Параметр не может быть меньше текущей даты и времени.
+                Если указывается в минутах, то не может быть меньше 1 минуты.
+                Максимальное значение - 90 суток. Если параметр не передан, то
+                по умолчанию QR будет действителен 3 суток<br>После истечения
+                срока действия QR-кода оплату по нему провести нельзя
+              format: YYYY-MM-DD ТHH24:MM:SS±HH:MM / +nM / +nm
+            sbpMerchantId:
+              type: string
+              description: Идентификатор зарегистрированного партнёра в СБП
+              maxLength: 12
+            subscription:
+              type: object
+              description: Используется для оплаты с последующей подпиской
+              properties:
+                id:
+                  type: string
+                  minLength: 1
+                  description: >-
+                    Идентификатор подписки. Рекомендуем использовать длинный
+                    формат без возможности перебора, например, использовать
+                    формат [UUID v4](https://ru.wikipedia.org/wiki/UUID)
+                  maxLength: 100
+                subscriptionPurpose:
+                  type: string
+                  minLength: 1
+                  description: >-
+                    Описание подписки, которое клиент увидит в приложении банка.
+                    Обязателен для подписки
+            redirectUrl:
+              type: string
+              format: uri
+              description: >-
+                Ссылка для автоматического возврата плательщика из приложения
+                банка в приложение или на сайт магазина. Ссылка должна содержать
+                https:// для web страниц или уникальную схему для мобильного
+                приложения.
+            operationId:
+              type: string
+              description: >
+                Уникальный идентификатор операции в системе партнёра. Рекомендуем использовать длинный формат без возможности перебора, например, использовать формат UUID v4
+            jsonParams:
+              description: Используется для платежей по свободным реквизитам
+              type: object
+            merchantAdditionalInfo:
+              type: object
+              format: json
+              description: >-
+                Данные мерчанта, передаваемые в формате json. Объект сохраняется для возврата мерчанту в уведомлении о платеже и ответе на запрос об информации по платежу.
+          required:
+            - amount
+            - order
+            - qrType
+            - sbpMerchantId
+            - operationId
+    refundQR:
+      title: Возврат QR
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Сумма возврата в рублях
+        order:
+          type: string
+          description: Уникальный идентификатор заказа в системе партнёра
+          maxLength: 40
+        paymentDetails:
+          type: string
+          description: Назначение платежа
+          maxLength: 140
+        refundId:
+          type: string
+          description: Уникальный идентификатор запроса на возврат в системе партнера
+          maxLength: 40
+        transactionId:
+          type: number
+          description: >-
+            Идентификатор операции платежа, обязателен только
+            для QRStatic
+        operationId:
+              type: string
+              description: >
+                Уникальный идентификатор операции в системе партнёра. Рекомендуем использовать длинный формат без возможности перебора, например, использовать формат UUID v4
+      required:
+        - amount
+        - order
+        - refundId
+        - transactionId
+        - operationId
+    qrResponse:
+      description: ''
+      type: object
+      properties:
+        qrId:
+          type: string
+          description: Уникальный идентификатор QR
+          maxLength: 32
+        qrStatus:
+          type: string
+          enum:
+            - INACTIVE
+            - NEW
+            - IN_PROGRESS
+            - PAID
+            - EXPIRED
+          description: >-
+            Статус QR-кода<br>Статус NEW означает готовность к оплате. QR-код с
+            типом QRStatic или QRDynamic создается в статусе NEW.
+        qrExpirationDate:
+          type: string
+          description: >-
+            Опциональный параметр для указания срока действия QR-кода. После
+            истечения срока действия QR-кода оплату по нему провести нельзя
+          format: YYYY-MM-DD ТHH24:MM:SS±HH:MM
+        payload:
+          type: string
+          description: >-
+            Данные для самостоятельной генерации изображения зарегистрированного
+            QR-кода в СБП. При открытии с мобильного устройства запускает
+            банковское приложение клиента или список для выбора банка
+        subscriptionId:
+          type: string
+          description: Идентификатор подписки
+    Error:
+      description: ''
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код ошибки
+        message:
+          type: string
+          description: Описание ошибки
+      required:
+        - code
+        - message
+    qrInfov2:
+      description: ''
+      type: object
+      title: qrInfov2
+      properties:
+        qrId:
+          type: string
+          description: Идентификатор зарегистрированного QR в СБП
+        qrStatus:
+          type: string
+          description: Код состояния QR-кода
+          enum:
+            - NEW
+            - IN_PROGRESS
+            - EXPIRED
+            - PAID
+        qrExpirationDate:
+          type: string
+          description: >-
+            Опциональный параметр для указания срока действия QR-кода. При
+            заполнении не может быть меньше текущей даты и времени. После
+            истечения срока действия QR-кода оплату по нему провести нельзя.
+            Если Тип QR = QRDynamic и поле не заполнено, срок действия будет 3
+            суток. ISO 8601
+        payload:
+          type: string
+          description: >-
+            Данные для самостоятельной генерации изображения зарегистрированного
+            QR-кода в СБП. При открытии с мобильного устройства, запускает
+            банковское приложение клиента или список выбора банка
+      required:
+        - qrId
+        - qrStatus
+        - payload
+    responseRefund:
+      description: ''
+      type: object
+      title: responseRefund
+      properties:
+        code:
+          type: string
+          description: Код состояния HTTP-запроса
+        amount:
+          type: number
+          description: Сумма возврата в рублях
+        refundStatus:
+          type: string
+          description: Код состояния запроса на возврат
+          enum:
+            - IN_PROGRESS
+            - COMPLETED
+            - DECLINED
+      required:
+        - code
+        - amount
+        - refundStatus
+
+    paymentNotification:
+      title: paymentNotification
+      type: object
+      properties:
+        transactionId:
+          type: number
+          description: Идентификатор операции платежа
+          example: 41
+        qrId:
+          type: string
+          description: >-
+            Уникальный идентификатор QR-кода, выданный СБП при запросе генерации
+            QR-кода
+          maxLength: 32
+          example: AS100032PQ7739G58NCQ457RA2OG82JP
+        sbpMerchantId:
+          type: string
+          description: Идентификатор зарегистрированного ТСП в СБП
+          maxLength: 12
+          example: MA0000000279
+        merchantId:
+          type: number
+          description: Идентификатор ТСП
+          example: 1780672001
+        amount:
+          type: number
+          description: Сумма в рублях
+          example: 10
+        currency:
+          type: string
+          description: Валюта платежа
+          maxLength: 3
+          example: RUB
+        transactionDate:
+          type: string
+          format: YYYY-MM-DD ТHH24:MM:SS±HH:MM
+          description: Дата и время проведения платежа
+          example: '2020-01-15 16:01:49.043924+03:00'
+        paymentStatus:
+          type: string
+          description: Статус проведения платежа
+          example: SUCCESS
+        additionalInfo:
+          type: string
+          description: >-
+            Дополнительная информация, заполняемая по желанию ТСП при генерации
+            QR-кода. Может быть доступна для пользователя в зависимости от банка
+          maxLength: 140
+          example: Some info
+        order:
+          type: string
+          description: Уникальный идентификатор заказа
+          maxLength: 40
+          example: testOrder
+        createDate:
+          type: string
+          format: YYYY-MM-DD ТHH24:MM:SS±HH:MM
+          description: Время формирования заявки
+          example: '2020-01-15 13:00:40+03:00'
+        operationId:
+          type: string
+          description: >
+            Уникальный идентификатор операции в системе партнёра.
+          example: '1234DGFHFJF'
+        merchantAdditionalInfo:
+          type: object
+          format: json
+          description: >-
+            Данные мерчанта, передаваемые в формате json. Объект сохраняется для возврата мерчанту в уведомлении о платеже и ответе на запрос об информации по платежу.
+      description: Уведомления о платеже
+
+    subscrNotification:
+      title: subscrNotification
+      type: object
+      properties:
+        qrId:
+          type: string
+          description: >-
+            Уникальный идентификатор QR-кода, выданный СБП при запросе генерации
+            QR-кода
+          maxLength: 32
+        subscrStatus:
+          type: string
+          description: Статус выполнения привязки счета Плательщика.
+          enum:
+            - DECLINED
+            - SUCCESS
+        subscriptionToken:
+          type: string
+          description: Уникальный идентификатор привязки счета Плательщика в Банке Плательщика.
+          maxLength: 32
+        memberId:
+          type: string
+          description: Идентификатор Банка Плательщика.
+          maxLength: 12
+      required:
+        - qrId
+        - subscrStatus
+      description: Уведомление о результате выполнения привязки счета.
+
+    subscrPetition:
+      title: subscrPetition
+      type: object
+      properties:
+        subscriptionToken:
+          type: string
+          description: Уникальный идентификатор привязки счета Плательщика в Банке Плательщика.
+          maxLength: 32
+        memberId:
+          type: string
+          description: Идентификатор Банка Плательщика.
+          maxLength: 12
+      required:
+        - subscriptionToken
+        - memberId
+      description: Запрос на оплату с привязанного счета.
+
+    subscrResolutionNotification:
+      title: subscrResolutionNotification
+      type: object
+      properties:
+        qrId:
+          type: string
+          description: >-
+            Уникальный идентификатор QR-кода, выданный СБП при запросе генерации QR-кода.
+          maxLength: 32
+        code:
+          type: string
+          description: Код ответа.
+          enum:
+            - RQ00030 (Согласие)
+            - RQ05031 (Привязка не найдена)
+            - RQ05032 (Отказ в выполнении)
+        message:
+          type: string
+          description: Описание кода ответа.
+          maxLength: 255
+      required:
+        - qrId
+        - code
+        - message
+      description: Уведомление о решении об оплате с привязанного счета.
