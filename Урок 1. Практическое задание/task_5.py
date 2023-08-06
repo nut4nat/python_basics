@@ -31,5 +31,7 @@ if profit - costs > 0:
     personal_qty = int(input("Input your quantity of personal >>>"))
     margin_per_man = (profit - costs) / personal_qty
     print(f"прибыль фирмы в расчете на одного сотрудника = {margin_per_man} rub")
+elif profit - costs == 0:
+    print("период отработан в 0")
 else:
     print("период отработан с убытком")
